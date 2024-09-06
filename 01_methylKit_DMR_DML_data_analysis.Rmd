@@ -131,8 +131,6 @@ if (file.exists(file.path(path.to.01.output, "DML_obj.rds")) == FALSE){
 } else {
   DML.obj <-  readRDS(file.path(path.to.01.output, "DML_obj.rds"))
 }
-
-
 ```
 
 
@@ -178,21 +176,21 @@ meta.data %>% create_dt()
 # Descriptive statistics on each sample 
 ## Histogram of % CpG methylation {.tabset}
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.width=14, fig.height=10}
-for (i in seq(length(all.cov.files))){
-  cat(sprintf("### %s \n", names(all.cov.files)[[i]]))
-  getMethylationStats(DML.obj[[i]], plot=TRUE, both.strands=FALSE)  
-  cat("\n \n")
-}
+# for (i in seq(length(all.cov.files))){
+#   cat(sprintf("### %s \n", names(all.cov.files)[[i]]))
+#   getMethylationStats(DML.obj[[i]], plot=TRUE, both.strands=FALSE)  
+#   cat("\n \n")
+# }
 
 ```
 
 ## Histogram of CpG coverage {.tabset}
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.width=14, fig.height=10}
-for (i in seq(length(all.cov.files))){
-  cat(sprintf("### %s \n", names(all.cov.files)[[i]]))
-  getCoverageStats(DML.obj[[i]], plot=TRUE, both.strands=FALSE)  
-  cat("\n \n")
-}
+# for (i in seq(length(all.cov.files))){
+#   cat(sprintf("### %s \n", names(all.cov.files)[[i]]))
+#   getCoverageStats(DML.obj[[i]], plot=TRUE, both.strands=FALSE)  
+#   cat("\n \n")
+# }
 
 ```
 
@@ -200,24 +198,42 @@ for (i in seq(length(all.cov.files))){
 
 ## Examine sample correlation
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
-meth <- methylKit::unite(object = DML.obj, destrand = FALSE)
+if (file.exists(file.path(path.to.01.output, "meth.rds")) == FALSE){
+  meth <- methylKit::unite(object = DML.obj, destrand = FALSE)
+  saveRDS(meth, file.path(path.to.01.output, "meth.rds"))  
+} else {
+  meth <- readRDS(file.path(path.to.01.output, "meth.rds"))
+}
+
 ```
 
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide',fig.keep='all', fig.width=14, fig.height=10, }
-a <- getCorrelation(meth, plot = TRUE)
+# a <- getCorrelation(meth, plot = TRUE)
 ```
 
 ## Clustering samples
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide',fig.keep='all', fig.width=14, fig.height=10}
-clusterSamples(meth, dist="correlation", method="ward", plot=TRUE)
+# clusterSamples(meth, dist="correlation", method="ward", plot=TRUE)
 ```
 
 ## Dimension reduction by PCA
 
-```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
-PCASamples(meth)
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.width=14, fig.height=10, include = FALSE}
+if (file.exists(file.path(path.to.01.output, "pca_from_CpG_loci_res.rds")) == FALSE){
+  pca.res <- PCASamples(meth, obj.return = TRUE, screeplot = FALSE)
+} else {
+  pca.res <- readRDS(file.path(path.to.01.output, "pca_from_CpG_loci_res.rds"))
+}
+
+pcadf <- pca.res$x %>% as.data.frame() %>% rownames_to_column("SampleID")  
+pcadf <- merge(pcadf, meta.data, by.x = "SampleID", by.y = "cov.name")
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, include = TRUE}
+pcadf %>% ggplot(aes(x = PC1, y = PC2, color = Label)) + geom_point(size = 3) + scale_color_manual(values = c("gray", "red"))
 ```
 
 ## Batch effects
@@ -277,7 +293,6 @@ library(BSgenome.Hsapiens.UCSC.hg19)
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 methdf <- getData(meth)
-
 methdf.grange <- makeGRangesFromDataFrame(methdf)
 
 if (file.exists(file.path(path.to.01.output, "finished_generating_DMR.csv")) == FALSE){
