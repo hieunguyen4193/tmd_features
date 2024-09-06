@@ -1,0 +1,589 @@
+---
+title: "Differential methylated regions analysis with MethylKit, min CpG coverage: `r params$min.cov`, analysis version: `r params$analysis.version`"
+author:
+  - "hieunguyen@genesolutions.vn"
+date: "Last update on `r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    keep_md: no
+    df_print: paged
+    toc: true
+    toc_float:
+      toc_collapsed: false
+    toc_depth: 3
+    number_sections: true
+    theme: lumen
+params:
+  min.cov: NA
+  analysis.version: NA
+  data.version: NA
+  output.version: NA
+---
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+<style type="text/css">
+    div.datatables { height: auto !important;}
+</style>
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.width=14, fig.height=10}
+# gc()
+# rm(list = ls())
+path.to.main.src <- "/media/hieunguyen/HNSD01/src/tmd_features"
+source(file.path(path.to.main.src, "import_libraries.R"))
+source(file.path(path.to.main.src, "helper_functions.R"))
+source(file.path(path.to.main.src, "prepare_promoter_regions.R"))
+library(GenomicRanges)
+source(file.path(path.to.main.src, "configs.R"))
+
+# min.cov <- params$min.cov
+# analysis.version <- params$analysis.version
+# data.version <- params$data.version
+# output.version <- params$output.version
+# input.cancer.class <- params$input.cancer.class
+
+# path.to.offline.pkgs <- "/media/hieunguyen/HNSD01/storage/offline_pkgs"
+# install.packages(file.path(path.to.offline.pkgs, "methylKit_1.30.0.tar.gz"), type = "source", repos = NULL)
+# install.packages(file.path(path.to.offline.pkgs, "BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz"), type = "source", repos = NULL)
+
+min.cov <- 5
+analysis.version <- "0.1"
+data.version <- "TMD_cov"
+output.version <- "20240907"
+input.cancer.class <- "Liver"
+
+min.cov.bases <- configs[[analysis.version]]$min.cov.bases
+qvalue.cutoff <- configs[[analysis.version]]$qvalue.cutoff
+methdiff.cutoff <- configs[[analysis.version]]$methdiff.cutoff
+log2FC.cutoff <- configs[[analysis.version]]$log2FC.cutoff
+up.flank <- configs[[analysis.version]]$up.flank
+down.flank <- configs[[analysis.version]]$down.flank
+
+outdir <- "/media/hieunguyen/HNSD_mini/outdir"
+path.to.input <- file.path("/media/hieunguyen/GSHD_HN01/raw_data/bismark_cov", data.version)
+path.to.main.output <- file.path(outdir, "TMD_read_based_features", "output", sprintf("data_%s", data.version), output.version)
+
+path.to.01.output <- file.path(path.to.main.output, sprintf("01_output_%s", analysis.version), sprintf("minCov_%s_class_%s", min.cov, input.cancer.class))
+dir.create(path.to.01.output, showWarnings = FALSE, recursive = TRUE)
+
+all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_cov", min.cov), "*.cov"))
+names(all.cov.files) <- unlist(lapply(all.cov.files, function(x){
+ x <- basename(x)
+ x <- str_split(x, ".deduplicated")[[1]][[1]]
+ return(x)
+}))
+
+meta.data <- readxl::read_excel(file.path(path.to.main.src, "metadata_cfDNA_lowpdepth_TMD_bam_cov.xlsx"))
+meta.data <- subset(meta.data, meta.data$Label %in% c("Control", input.cancer.class))
+meta.data <- meta.data %>% rowwise() %>%
+  mutate(cov.name = str_split(basename(TM_COV), ".deduplicated")[[1]][[1]])
+meta.data <- subset(meta.data, is.na(meta.data$cov.name) == FALSE)
+
+all.cov.files <- all.cov.files[meta.data$cov.name]
+
+labels <- to_vec( for(item in names(all.cov.files)) if (subset(meta.data, meta.data$cov.name == item)$Label == input.cancer.class) 1 else 0)
+
+##### python code to check number of CpG in regions
+# import pyfaidx
+# import os
+# path_to_all_fa = "/Users/hieunguyen/src/data/hg19"
+# def get_refseq(path_to_all_fa, chrom, start, end):
+#     
+#     refseq = pyfaidx.Fasta(os.path.join(path_to_all_fa, "chr{}.fa".format(chrom)))
+#     return(str.upper(refseq.get_seq(name = "chr{}".format(chrom), start = start, end = end).seq))
+# 
+# def find_CpG(ref_seq):
+#         import re
+#         all_C_positions = [m.start(0) for m in re.finditer("CG", ref_seq)]
+#         all_c_positions = [m.start(0) for m in re.finditer("cg", ref_seq)]
+#         all_cG_positions = [m.start(0) for m in re.finditer("cG", ref_seq)]
+#         return all_C_positions + all_c_positions + all_cG_positions
+
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.width=14, fig.height=10}
+if (file.exists(file.path(path.to.01.output, "DML_obj.rds")) == FALSE){
+  DML.obj <- readBismarkCoverage( all.cov.files,
+                     sample.id = names(all.cov.files),
+                     assembly = "hg19",
+                     treatment = labels,
+                     context = "CpG",
+                     min.cov = min.cov)
+  saveRDS(DML.obj, file.path(path.to.01.output, "DML_obj.rds"))  
+} else {
+  DML.obj <-  readRDS(file.path(path.to.01.output, "DML_obj.rds"))
+}
+
+
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+meta.data  %>% create_dt()
+```
+
+
+```{r echo=TRUE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+print(sprintf("Min coverage of CpGs used in this analysis: %s", min.cov))
+```
+
+
+```{r echo=TRUE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+print(sprintf("Min number of CpGs in a region to be considered in this analysis: %s", min.cov.bases))
+```
+
+
+```{r echo=TRUE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+print(sprintf("q-value (adjusted p-value) cut-off = %s", qvalue.cutoff))
+```
+
+```{r echo=TRUE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+print(sprintf("meth.diff cut-off = %s", methdiff.cutoff))
+```
+
+```{r echo=TRUE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+print(sprintf("Up.stream from TSS = %s", up.flank))
+```
+
+```{r echo=TRUE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+print(sprintf("Down.stream from TSS = %s", down.flank))
+```
+
+# Metadata
+
+**We calculate methylation difference as the difference of (group: 1) - control (group: 0)**
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+meta.data %>% create_dt()
+```
+
+# Descriptive statistics on each sample 
+## Histogram of % CpG methylation {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.width=14, fig.height=10}
+for (i in seq(length(all.cov.files))){
+  cat(sprintf("### %s \n", names(all.cov.files)[[i]]))
+  getMethylationStats(DML.obj[[i]], plot=TRUE, both.strands=FALSE)  
+  cat("\n \n")
+}
+
+```
+
+## Histogram of CpG coverage {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.width=14, fig.height=10}
+for (i in seq(length(all.cov.files))){
+  cat(sprintf("### %s \n", names(all.cov.files)[[i]]))
+  getCoverageStats(DML.obj[[i]], plot=TRUE, both.strands=FALSE)  
+  cat("\n \n")
+}
+
+```
+
+# Some preliminary analysis
+
+## Examine sample correlation
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+meth <- methylKit::unite(object = DML.obj, destrand = FALSE)
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide',fig.keep='all', fig.width=14, fig.height=10, }
+a <- getCorrelation(meth, plot = TRUE)
+```
+
+## Clustering samples
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide',fig.keep='all', fig.width=14, fig.height=10}
+clusterSamples(meth, dist="correlation", method="ward", plot=TRUE)
+```
+
+## Dimension reduction by PCA
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+PCASamples(meth)
+```
+
+## Batch effects
+
+# Differential methylated loci
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+if (file.exists(file.path(path.to.01.output, "DML.rds")) == FALSE){
+  myDiff <- calculateDiffMeth(meth, mc.cores = 45)
+  saveRDS(myDiff, file.path(path.to.01.output, "DML.rds"))
+} else {
+  myDiff <- readRDS(file.path(path.to.01.output, "DML.rds"))
+}
+
+# get hyper methylated bases
+diff.loci.hyper <- getMethylDiff(myDiff, difference = methdiff.cutoff, qvalue = qvalue.cutoff, type = "hyper")
+
+# get hypo methylated bases
+diff.loci.hypo <- getMethylDiff(myDiff, difference = methdiff.cutoff, qvalue = qvalue.cutoff, type = "hypo")
+
+# get all differentially methylated bases
+if (file.exists(file.path(path.to.01.output, "diff_locidf.rds")) == FALSE){
+  diff.loci <- getMethylDiff(myDiff, difference = methdiff.cutoff, qvalue = qvalue.cutoff)
+  saveRDS(diff.loci, file.path(path.to.01.output, "diff_locidf.rds"))  
+} else {
+  diff.loci <- readRDS(file.path(path.to.01.output, "diff_locidf.rds"))
+}
+
+diff.loci.Granges <- as(diff.loci,"GRanges")
+hypo.loci.Granges <- as(diff.loci.hypo, "GRanges")
+hyper.loci.Granges <- as(diff.loci.hyper, "GRanges")
+```
+
+## List of all differentially methylated loci
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.loci %>% as.data.frame() %>% create_dt()
+```
+
+## List of all differentially methylated loci (Hyper)
+Regions could be sorted by **meth.diff**, click on the up-triangle or down-triangle to sort the table.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.loci.hyper %>% as.data.frame() %>% create_dt()
+```
+
+
+## List of all differentially methylated loci (Hypo)
+Regions could be sorted by **meth.diff**, click on the up-triangle or down-triangle to sort the table.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.loci.hypo%>% as.data.frame() %>% create_dt()
+```
+
+# Differentially methylated regions
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+library(BSgenome.Hsapiens.UCSC.hg19)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+methdf <- getData(meth)
+
+methdf.grange <- makeGRangesFromDataFrame(methdf)
+
+if (file.exists(file.path(path.to.01.output, "finished_generating_DMR.csv")) == FALSE){
+  meth.chr <- hash()
+  tiles <- hash()
+  diff.regions.by.chr <- hash()
+  methdf.grange.chr <- hash()
+  
+  diff.regiondf <- data.frame()
+  for (chrom in setdiff(unique(methdf$chr), c("X", "Y", "MT"))){
+    print(sprintf("Working on chromosome: %s", chrom))
+    methdf.grange.chr[[chrom]] <- subset(methdf.grange, seqnames == chrom) 
+    
+    meth.chr[[chrom]] <- selectByOverlap(meth, methdf.grange.chr[[chrom]])
+    meth.chr[[chrom]] <- meth.chr[[chrom]][!duplicated(meth.chr[[chrom]]), ] 
+    
+    tiles[[chrom]] <- tileMethylCounts(meth.chr[[chrom]], win.size=1000, step.size=1000, cov.bases = min.cov.bases, mc.cores = 40)
+    
+    if( dim(tiles[[chrom]])[[1]] != 0){
+      diff.regions.by.chr[[chrom]] <- data.frame(calculateDiffMeth(tiles[[chrom]])) 
+      diff.regiondf <- rbind(diff.regiondf, diff.regions.by.chr[[chrom]])
+    }
+  }
+  
+  ##### diff meth cut-off not applied in diff regions
+  diff.regiondf <- diff.regiondf %>% rowwise() %>%
+    mutate(abs.meth.diff = abs(meth.diff)) %>%
+    mutate(sig = ifelse(qvalue <= qvalue.cutoff, "significant", "not.significant"))
+  diff.regiondf.raw <- diff.regiondf
+  
+  diff.regiondf <- subset(diff.regiondf, sig == "significant")
+  diff.regiondf <- diff.regiondf %>% rowwise() %>% 
+    mutate(name = sprintf("%s.%s.%s", chr,  start, end))
+  
+  saveRDS(meth.chr, file.path(path.to.01.output, "meth_chr.rds"))
+  saveRDS(tiles, file.path(path.to.01.output, "tiles.rds"))
+  saveRDS(diff.regions.by.chr, file.path(path.to.01.output, "diff_regions_by_chr.rds"))
+  saveRDS(methdf.grange.chr, file.path(path.to.01.output, "methdf_grange_chr.rds"))
+  saveRDS(diff.regiondf.raw, file.path(path.to.01.output, "diff_regiondf_raw.rds"))
+  saveRDS(diff.regiondf, file.path(path.to.01.output, "diff_regiondf.rds"))
+  write.csv(data.frame(status = c("Finished generating DMR results")), file.path(path.to.01.output, "finished_generating_DMR.csv"))
+} else {
+  meth.chr <- readRDS(file.path(path.to.01.output, "meth_chr.rds"))
+  tiles <- readRDS(file.path(path.to.01.output, "tiles.rds"))
+  diff.regions.by.chr <- readRDS(file.path(path.to.01.output, "diff_regions_by_chr.rds"))
+  methdf.grange.chr <- readRDS(file.path(path.to.01.output, "methdf_grange_chr.rds"))
+  diff.regiondf.raw <- readRDS(file.path(path.to.01.output, "diff_regiondf_raw.rds"))
+  diff.regiondf <- readRDS(file.path(path.to.01.output, "diff_regiondf.rds"))
+}
+
+diff.region.Granges <- as(diff.regiondf,"GRanges")
+```
+
+## List of all differential methylation regions {.tabset}
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.regiondf %>% create_dt()
+```
+
+## List of all hypo differential methylation regions {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.regiondf %>% subset(meth.diff <= 0) %>% create_dt()
+```
+
+## List of all hyper differential methylation regions {.tabset}
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.regiondf %>% subset(meth.diff > 0) %>% create_dt()
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.region.Granges <- as(diff.regiondf,"GRanges")
+```
+
+
+# Heatmap
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+meth.cpg.matrix <- percMethylation(meth, rowids = TRUE)
+meth.region.matrix <- percMethylation(tiles$`1`, rowids = TRUE)
+for (chrom in seq(2, 22)){
+  meth.region.matrix <- rbind(meth.region.matrix, percMethylation(tiles[[sprintf("%s", chrom)]], rowids = TRUE))
+}
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.locidf <- diff.loci.Granges %>% as.data.frame() %>% rowwise() %>%
+  mutate(name = sprintf("%s.%s.%s", str_replace(seqnames, "chr", ""), start, end))
+diff.meth.cpg.matrix <- meth.cpg.matrix[diff.locidf$name,]
+
+diff.meth.region.matrix <- meth.region.matrix[diff.regiondf$name,]
+
+meta.data <- meta.data %>% arrange(desc(Label))
+
+diff.meth.cpg.matrix <- diff.meth.cpg.matrix[, meta.data$SampleID]
+diff.meth.region.matrix <- diff.meth.region.matrix[, meta.data$SampleID]
+```
+
+## DML
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.meth.cpg.matrix.scaled <- (diff.meth.cpg.matrix - rowMeans(diff.meth.cpg.matrix))/rowSds(diff.meth.cpg.matrix, useNames = TRUE)
+
+diff.meth.cpg.matrix.scaled.pivot <- diff.meth.cpg.matrix.scaled  %>% as.data.frame() %>% rownames_to_column("region") %>% pivot_longer(!region, values_to = "meth.density", names_to = "sample") %>%
+  rowwise() %>% 
+  mutate(Label = subset(meta.data, meta.data$SampleID == sample)$Label)
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+pheatmap::pheatmap(diff.meth.cpg.matrix, cluster_rows = TRUE, cluster_cols = TRUE, scale = "row", show_rownames = FALSE)
+```
+
+## DMR
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.meth.region.matrix.scaled <- (diff.meth.region.matrix - rowMeans(diff.meth.region.matrix))/rowSds(diff.meth.region.matrix, useNames = TRUE)
+
+diff.meth.region.matrix.scaled.pivot <- diff.meth.region.matrix.scaled  %>% 
+  as.data.frame() %>% 
+  rownames_to_column("region") %>% pivot_longer(!region, values_to = "meth.density", names_to = "sample") %>%
+  rowwise() %>% 
+  mutate(Label = subset(meta.data, meta.data$SampleID == sample)$Label)
+
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+pheatmap::pheatmap(diff.meth.region.matrix, cluster_rows = TRUE, cluster_cols = TRUE, scale = "row", show_rownames = FALSE)
+```
+
+# Volcano plot
+
+**We calculate methylation difference as the difference of (group: 1) - control (group: 0)**
+
+## DML
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+if (file.exists(file.path(path.to.01.output, "diff_loci_raw.rds")) == FALSE){
+  diff.loci.raw <- data.frame(myDiff) %>%
+    rowwise() %>%
+    mutate(locus.name = sprintf("%s.%s.%s", chr, start, end)) %>%
+    mutate(abs.meth.diff = abs(meth.diff))
+  
+  diff.loci.raw <- diff.loci.raw %>% rowwise() %>%
+    # mutate(mean.0 = meth.cpg.matrix[locus.name, subset(meta.data, meta.data$Label == 0)$filename] %>% mean()) %>%
+    # mutate(mean.1 = meth.cpg.matrix[locus.name, subset(meta.data, meta.data$Label == 1)$filename] %>% mean()) %>%
+    # mutate(median.0 = meth.cpg.matrix[locus.name, subset(meta.data, meta.data$Label == 0)$filename] %>% median()) %>%
+    # mutate(median.1 = meth.cpg.matrix[locus.name, subset(meta.data, meta.data$Label == 1)$filename] %>% median()) %>%
+    # mutate(log2FC = log2(mean.0/mean.1)) %>%
+    mutate(sig = ifelse(qvalue <= qvalue.cutoff & abs.meth.diff >= methdiff.cutoff, "significant", "not.significant"))
+saveRDS(diff.loci.raw, file.path(path.to.01.output, "diff_loci_raw.rds"))
+} else {
+  diff.loci.raw <- readRDS(file.path(path.to.01.output, "diff_loci_raw.rds"))
+}
+
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.loci.raw %>% ggplot(aes(x = meth.diff, y = -log10(qvalue), color = sig)) + 
+  geom_point() + 
+  geom_vline(xintercept = 0, linetype = "dotted") + 
+  geom_vline(xintercept = methdiff.cutoff, linetype = "dashed") + 
+  geom_vline(xintercept = -methdiff.cutoff, linetype = "dashed") + 
+  scale_color_manual(values = c("gray", "red"))
+```
+
+
+## DMR
+
+The following volcano plot has a "jitter" of width = 0.5 and height = 0.5
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.regiondf.raw %>% ggplot(aes(x = meth.diff, y = -log10(qvalue), color = sig)) + 
+  geom_point(size = 2) +
+  geom_jitter(width = 0.5, height = 0.5) + 
+  geom_vline(xintercept = 0, linetype = "dotted") + 
+  geom_vline(xintercept = methdiff.cutoff, linetype = "dashed") + 
+  geom_vline(xintercept = -methdiff.cutoff, linetype = "dashed") +
+  scale_color_manual(values = c("gray", "red"))
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+diff.locidf <- diff.locidf %>% rowwise() %>%
+  mutate(status = ifelse(meth.diff <= 0, "hypo", "hyper"))
+
+diff.regiondf <- diff.regiondf  %>% rowwise() %>%
+  mutate(status = ifelse(meth.diff <= 0, "hypo", "hyper"))
+
+#####----------------------------------------------------------------------#####
+##### PREPARE PROMOTER REGIONS, NEW VERSION 2024.01.15
+#####----------------------------------------------------------------------#####
+promoterdf <- define_promoter_regions(up.flank = up.flank,
+                                      down.flank = down.flank, 
+                                      path.to.save.promoterdf = path.to.01.output)
+promoterdf <- promoterdf %>%
+  rowwise() %>%
+  mutate(promoter_seqnames = str_replace(promoter_seqnames, "chr", ""))
+promoter.grange <- makeGRangesFromDataFrame(df = promoterdf, 
+                                            seqnames.field = "promoter_seqnames",
+                                            start.field = "promoter_start",
+                                            end.field = "promoter_end",
+                                            strand.field = "promoter_strand", keep.extra.columns = TRUE)
+```
+
+# DML Annotation
+
+## All DML
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+annotated.dml <- annotate_with_promoter_database(diff.loci.Granges, promoter.grange)
+annotated.dml <- merge(diff.locidf, annotated.dml, by.x = "name", by.y = "name")
+annotated.dml %>% create_dt()
+```
+
+## Hyper DML only
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+annotated.dml %>% subset(name %in% subset(diff.locidf, diff.locidf$status == "hyper")$name) %>% create_dt()
+```
+
+## Hypo DML only
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+annotated.dml %>% subset(name %in% subset(diff.locidf, diff.locidf$status == "hypo")$name) %>% create_dt()
+```
+
+# DMR Annotation
+## All DMR
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+annotated.dmr <- annotate_with_promoter_database(diff.region.Granges, promoter.grange)
+annotated.dmr <- merge(diff.regiondf, annotated.dmr, by.x = "name", by.y = "name", all.x = TRUE)
+annotated.dmr %>% create_dt()
+```
+
+## Hyper DMR only
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+annotated.dmr %>% subset(name %in% subset(diff.regiondf, diff.regiondf$status == "hyper")$name) %>% create_dt()
+```
+
+## Hypo DMR only
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+annotated.dmr %>% subset(name %in% subset(diff.regiondf, diff.regiondf$status == "hypo")$name) %>% create_dt()
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+print(sprintf("Number of CpG in all %s samples: %s", nrow(meta.data), nrow(meth)))
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+writexl::write_xlsx(as.data.frame(meth.cpg.matrix) %>% rownames_to_column("CpG"), file.path(path.to.01.output, sprintf("methylation_loci_matrix.%s_minCov_%s.xlsx", analysis.version, min.cov)))
+writexl::write_xlsx(as.data.frame(meth.region.matrix) %>% rownames_to_column("CpG"), file.path(path.to.01.output, sprintf("methylation_region_matrix.%s_minCov_%s.xlsx", analysis.version, min.cov)))
+```
+
+# New annotation 2024.06.09
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+library("TxDb.Hsapiens.UCSC.hg19.knownGene")
+library("annotatr")
+hg19.all.annots <- to_vec( for (item in builtin_annotations())  if (grepl("hg19", item) == TRUE) item)
+hg19.all.annots.cpg <- to_vec( for (item in builtin_annotations())  if (grepl("hg19", item) == TRUE & grepl("cpg", item) == TRUE) item)
+
+if (file.exists(file.path(path.to.01.output, "annot.all.rds")) == FALSE){
+  annots <- c('hg19_genes_cds', "hg19_basicgenes", "hg19_genes_promoters")
+  annot.all <- build_annotations(genome = 'hg19', annotations = annots)
+  saveRDS(annot.all, file.path(path.to.01.output, "annot.all.rds"))  
+} else {
+  annot.all <- readRDS(file.path(path.to.01.output, "annot.all.rds"))
+}
+
+
+diff.locidf$seqnames <- unlist(lapply(diff.locidf$seqnames, function(x){
+  return(sprintf("chr%s", x))
+}))
+
+diff.regiondf$chr <- unlist(lapply(diff.regiondf$chr, function(x){
+  return(sprintf("chr%s", x))
+}))
+
+diff.loci.grange <- makeGRangesFromDataFrame(diff.locidf, seqnames.field = "seqnames", start.field = "start", end.field = "end", keep.extra.columns = TRUE)
+diff.region.grange <- makeGRangesFromDataFrame(diff.regiondf, seqnames.field = "chr", start.field = "start", end.field = "end", keep.extra.columns = TRUE)
+
+annot.dml <- annotate_regions(
+    regions = diff.loci.grange,
+    annotations = annot.all,
+    ignore.strand = TRUE,
+    quiet = FALSE)
+
+annot.dmldf <- data.frame(annot.dml)
+
+annot.dmr <- annotate_regions(
+    regions = diff.region.grange,
+    annotations = annot.all,
+    ignore.strand = TRUE,
+    quiet = FALSE)
+annot.dmrdf <- data.frame(annot.dmr)
+```
+
+## DML
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+annot.dmldf %>% create_dt()
+```
+
+## DMR
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+##### add number of CpGs to the annot.dmrdf
+# annot.dmrdf$numCpGs <- unlist(lapply(seq(1, nrow(annot.dmrdf)), function(i){
+#   seqnames <- annot.dmrdf[i, "seqnames"]
+#   start <- annot.dmrdf[i, "start"]
+#   end <- annot.dmrdf[i, "end"]
+#   output <- str_extract_all(as.character(Biostrings::getSeq(BSgenome.Hsapiens.UCSC.hg19, seqnames, start, end)), regex("CG"))[[1]] %>% length()
+#   return(output)
+# }))
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
+annot.dmrdf %>% create_dt()
+```
