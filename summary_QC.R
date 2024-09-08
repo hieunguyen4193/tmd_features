@@ -115,19 +115,25 @@ plotdf %>% ggplot(aes(x = group, y = count)) + geom_boxplot()
 #####----------------------------------------------------------------------#####
 ##### check available CpG
 #####----------------------------------------------------------------------#####
-all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_TMD450regions_cov", 5), "*.cov"))
-cpg450df <- cpg450df[!duplicated(cpg450df$cpg),]
-all.tmd.cpgs <- to_vec( for (item in seq(1, nrow(cpg450df))) 0)
-names(all.tmd.cpgs) <- cpg450df$cpg
-
-tmp.all.cov.files <- all.cov.files
-for (file in all.cov.files){
-  print(length(setdiff(tmp.all.cov.files, c(file))))
-  tmp.all.cov.files <- setdiff(tmp.all.cov.files, c(file))
-  tmpdf <- read.csv(file, sep = "\t", header = FALSE)
-  tmp.cpg <- tmpdf$V7
-  check.count <- to_vec(for (i in names(all.tmd.cpgs)) if (i %in% tmp.cpg) 1 else 0)
-  all.tmd.cpgs <- all.tmd.cpgs + check.count
+if (file.exists(file.path(path.to.save.QC.output, "count_occurrences_CpG_in_all_samples.rds")) == FALSE){
+  all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_TMD450regions_cov", 5), "*.cov"))
+  cpg450df <- cpg450df[!duplicated(cpg450df$cpg),]
+  all.tmd.cpgs <- to_vec( for (item in seq(1, nrow(cpg450df))) 0)
+  names(all.tmd.cpgs) <- cpg450df$cpg
+  
+  tmp.all.cov.files <- all.cov.files
+  for (file in all.cov.files){
+    print(length(setdiff(tmp.all.cov.files, c(file))))
+    tmp.all.cov.files <- setdiff(tmp.all.cov.files, c(file))
+    tmpdf <- read.csv(file, sep = "\t", header = FALSE)
+    tmp.cpg <- tmpdf$V7
+    check.count <- to_vec(for (i in names(all.tmd.cpgs)) if (i %in% tmp.cpg) 1 else 0)
+    all.tmd.cpgs <- all.tmd.cpgs + check.count
+  }
+  saveRDS(all.tmd.cpgs, file.path(path.to.save.QC.output, "count_occurrences_CpG_in_all_samples.rds"))
+  
+} else {
+  all.tmd.cpgs <- readRDS(file.path(path.to.save.QC.output, "count_occurrences_CpG_in_all_samples.rds"))
 }
 
-saveRDS(all.tmd.cpgs, file.path(path.to.save.QC.output, "count_occurrences_CpG_in_all_samples.rds"))
+

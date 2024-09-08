@@ -21,7 +21,7 @@ source(file.path(path.to.main.src, "configs.R"))
 min.cov <- 5
 analysis.version <- "0.1"
 data.version <- "TMD_cov"
-output.version <- "20240907"
+output.version <- "20240907_full"
 # input.cancer.class <- "Liver"
 all.cancer.classes <- c("Liver", "Breast", "Gastric", "Lung", "CRC")
 
@@ -40,7 +40,6 @@ for (input.cancer.class in all.cancer.classes){
   
   path.to.01.output <- file.path(path.to.main.output, sprintf("01_output_%s", analysis.version), sprintf("minCov_%s_class_%s", min.cov, input.cancer.class))
   dir.create(path.to.01.output, showWarnings = FALSE, recursive = TRUE)
-  
   all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_cov", min.cov), "*.cov"))
   names(all.cov.files) <- unlist(lapply(all.cov.files, function(x){
     x <- basename(x)
@@ -53,6 +52,7 @@ for (input.cancer.class in all.cancer.classes){
   meta.data <- meta.data %>% rowwise() %>%
     mutate(cov.name = str_split(basename(TM_COV), ".deduplicated")[[1]][[1]])
   meta.data <- subset(meta.data, is.na(meta.data$cov.name) == FALSE)
+  meta.data <- subset(meta.data, meta.data$Set == "train")
   meta.data <- meta.data[!duplicated(meta.data$cov.name), ]
   all.cov.files <- all.cov.files[meta.data$cov.name]
   labels <- to_vec( for(item in names(all.cov.files)) if (subset(meta.data, meta.data$cov.name == item)$Label == input.cancer.class) 1 else 0)

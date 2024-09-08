@@ -66,7 +66,7 @@ source(file.path(path.to.main.src, "configs.R"))
 min.cov <- 5
 analysis.version <- "0.1"
 data.version <- "TMD_cov"
-output.version <- "20240907"
+output.version <- "20240907_full"
 input.cancer.class <- "Liver"
 
 min.cov.bases <- configs[[analysis.version]]$min.cov.bases
@@ -83,19 +83,19 @@ path.to.main.output <- file.path(outdir, "TMD_read_based_features", "output", sp
 path.to.01.output <- file.path(path.to.main.output, sprintf("01_output_%s", analysis.version), sprintf("minCov_%s_class_%s", min.cov, input.cancer.class))
 dir.create(path.to.01.output, showWarnings = FALSE, recursive = TRUE)
 
-# all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_cov", min.cov), "*.cov"))
-all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_TMD450regions_cov", min.cov), "*.cov"))
+all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_cov", min.cov), "*.cov"))
+# all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_TMD450regions_cov", min.cov), "*.cov"))
 
-# names(all.cov.files) <- unlist(lapply(all.cov.files, function(x){
-#  x <- basename(x)
-#  x <- str_split(x, ".deduplicated")[[1]][[1]]
-#  return(x)
-# }))
 names(all.cov.files) <- unlist(lapply(all.cov.files, function(x){
  x <- basename(x)
- x <- str_split(x, ".cov")[[1]][[1]]
+ x <- str_split(x, ".deduplicated")[[1]][[1]]
  return(x)
 }))
+# names(all.cov.files) <- unlist(lapply(all.cov.files, function(x){
+#  x <- basename(x)
+#  x <- str_split(x, ".cov")[[1]][[1]]
+#  return(x)
+# }))
 
 meta.data <- readxl::read_excel(file.path(path.to.main.src, "metadata_cfDNA_lowpdepth_TMD_bam_cov.xlsx"))
 meta.data <- subset(meta.data, meta.data$Label %in% c("Control", input.cancer.class))
@@ -207,7 +207,7 @@ meta.data %>% create_dt()
 ## Examine sample correlation
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 if (file.exists(file.path(path.to.01.output, "meth.rds")) == FALSE){
-  meth <- methylKit::unite(object = DML.obj, destrand = FALSE, min.per.group = integer(min(table(labels))/2))
+  meth <- methylKit::unite(object = DML.obj, destrand = FALSE)
   saveRDS(meth, file.path(path.to.01.output, "meth.rds"))  
 } else {
   meth <- readRDS(file.path(path.to.01.output, "meth.rds"))
