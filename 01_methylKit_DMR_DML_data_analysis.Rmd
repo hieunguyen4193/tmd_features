@@ -83,10 +83,17 @@ path.to.main.output <- file.path(outdir, "TMD_read_based_features", "output", sp
 path.to.01.output <- file.path(path.to.main.output, sprintf("01_output_%s", analysis.version), sprintf("minCov_%s_class_%s", min.cov, input.cancer.class))
 dir.create(path.to.01.output, showWarnings = FALSE, recursive = TRUE)
 
-all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_cov", min.cov), "*.cov"))
+# all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_cov", min.cov), "*.cov"))
+all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_TMD450regions_cov", min.cov), "*.cov"))
+
+# names(all.cov.files) <- unlist(lapply(all.cov.files, function(x){
+#  x <- basename(x)
+#  x <- str_split(x, ".deduplicated")[[1]][[1]]
+#  return(x)
+# }))
 names(all.cov.files) <- unlist(lapply(all.cov.files, function(x){
  x <- basename(x)
- x <- str_split(x, ".deduplicated")[[1]][[1]]
+ x <- str_split(x, ".cov")[[1]][[1]]
  return(x)
 }))
 
@@ -95,6 +102,7 @@ meta.data <- subset(meta.data, meta.data$Label %in% c("Control", input.cancer.cl
 meta.data <- meta.data %>% rowwise() %>%
   mutate(cov.name = str_split(basename(TM_COV), ".deduplicated")[[1]][[1]])
 meta.data <- subset(meta.data, is.na(meta.data$cov.name) == FALSE)
+meta.data <- subset(meta.data, meta.data$Set == "train")
 
 all.cov.files <- all.cov.files[meta.data$cov.name]
 
@@ -199,7 +207,7 @@ meta.data %>% create_dt()
 ## Examine sample correlation
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10}
 if (file.exists(file.path(path.to.01.output, "meth.rds")) == FALSE){
-  meth <- methylKit::unite(object = DML.obj, destrand = FALSE)
+  meth <- methylKit::unite(object = DML.obj, destrand = FALSE, min.per.group = integer(min(table(labels))/2))
   saveRDS(meth, file.path(path.to.01.output, "meth.rds"))  
 } else {
   meth <- readRDS(file.path(path.to.01.output, "meth.rds"))
@@ -222,7 +230,7 @@ if (file.exists(file.path(path.to.01.output, "meth.rds")) == FALSE){
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE, results='hide', fig.width=14, fig.height=10, include = FALSE}
 if (file.exists(file.path(path.to.01.output, "pca_from_CpG_loci_res.rds")) == FALSE){
-  pca.res <- PCASamples(meth, obj.return = TRUE, screeplot = FALSE)
+  pca.res <- PCASamples(meth, obj.return = TRUE, screeplot = FALSE, )
 } else {
   pca.res <- readRDS(file.path(path.to.01.output, "pca_from_CpG_loci_res.rds"))
 }

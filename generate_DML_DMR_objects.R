@@ -16,7 +16,7 @@ source(file.path(path.to.main.src, "configs.R"))
 
 # path.to.offline.pkgs <- "/media/hieunguyen/HNSD01/storage/offline_pkgs"
 # install.packages(file.path(path.to.offline.pkgs, "methylKit_1.30.0.tar.gz"), type = "source", repos = NULL)
-# install.packages(file.path(path.to.offline.pkgs, "BSgenome.Hsapiens.UCSC.hg19_1.4.3.tar.gz"), type = "source", repos = NULL)
+# install.packages(file.path(path.to.offline.pkgs, "BSgenome.Hsapiens.UCSC.hg38_1.4.3.tar.gz"), type = "source", repos = NULL)
 
 min.cov <- 5
 analysis.version <- "0.1"
@@ -64,7 +64,7 @@ for (input.cancer.class in all.cancer.classes){
     print("Generate methylkit object from input cov files...")
     DML.obj <- readBismarkCoverage( all.cov.files,
                                     sample.id = names(all.cov.files),
-                                    assembly = "hg19",
+                                    assembly = "hg38",
                                     treatment = labels,
                                     context = "CpG",
                                     min.cov = min.cov)
