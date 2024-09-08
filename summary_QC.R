@@ -95,7 +95,7 @@ plotdf$group <- factor(plotdf$group, levels = c("count.depth.5",
                                                 "count.depth.15",
                                                 "count.depth.20"))
 
-plotdf %>% ggplot(aes(x = group, y = count)) + geom_boxplot()
+plotdf %>% ggplot(aes(x = group, y = count)) + geom_boxplot() + theme_pubr(base_size = 20) 
 
 #####----------------------------------------------------------------------#####
 ##### on target rates
@@ -110,7 +110,7 @@ plotdf$group <- factor(plotdf$group, levels = c("pct.depth.5",
                                                 "pct.depth.15",
                                                 "pct.depth.20"))
 
-plotdf %>% ggplot(aes(x = group, y = count)) + geom_boxplot()
+plotdf %>% ggplot(aes(x = group, y = count)) + geom_boxplot() + theme_pubr(base_size = 20) 
 
 #####----------------------------------------------------------------------#####
 ##### check available CpG
