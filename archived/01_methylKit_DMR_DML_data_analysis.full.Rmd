@@ -67,7 +67,7 @@ min.cov <- 5
 analysis.version <- "0.1"
 data.version <- "TMD_cov"
 output.version <- "20240907_full"
-input.cancer.class <- "Gastric"
+input.cancer.class <- "Breast"
 
 min.cov.bases <- configs[[analysis.version]]$min.cov.bases
 qvalue.cutoff <- configs[[analysis.version]]$qvalue.cutoff
@@ -244,6 +244,19 @@ pcadf <- merge(pcadf, meta.data, by.x = "SampleID", by.y = "cov.name")
 library(ggpubr)
 pcadf$Label <- factor(pcadf$Label, levels = c(input.cancer.class, "Control"))
 pcadf %>% ggplot(aes(x = PC1, y = PC2, color = Label)) + geom_point(size = 1) + scale_color_manual(values = c("red", "grey")) + theme_pubr(base_size = 15)
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, results='asis', fig.width=14, fig.height=10, include = TRUE}
+cpg450df <- read.csv(file.path(path.to.main.src, "all_cpg_in_450_tmd_regions.csv"))
+cpg450df <- cpg450df %>% rowwise() %>%
+  mutate(cpg = sprintf("%s_%s", chrom, pos)) %>%
+  subset(select = -c(X))
+
+check.metdf <- getData(meth)[,c("chr", "start")] %>% as.data.frame() %>%
+  rowwise() %>%
+  mutate(cpg = sprintf("%s_%s", chr, start))
+intersect(cpg450df$cpg, check.metdf$cpg)
 ```
 
 ## Batch effects
