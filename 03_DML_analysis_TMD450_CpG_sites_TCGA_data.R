@@ -89,4 +89,9 @@ for (input.cancer.class in all.cancer.classes){
     mutate(abs.diff = abs(diff)) 
   DMPs <- merge(DMPs, subset(cpg450df, select = c(cpg, region)), by.x = "cpg", by.y = "cpg")
   writexl::write_xlsx(DMPs, file.path(path.to.03.output, "DMPs.xlsx"))
+  
+  countDMPs <- table(DMPs$region, DMPs$hyper_or_hypo1) %>% as.data.frame() %>%
+    pivot_wider(names_from = "Var2", values_from = "Freq")
+  writexl::write_xlsx(countDMPs, file.path(path.to.03.output, "countDMPs.xlsx"))
+  
 }
