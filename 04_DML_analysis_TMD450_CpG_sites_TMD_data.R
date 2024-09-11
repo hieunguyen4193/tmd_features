@@ -52,61 +52,51 @@ meta.data <- meta.data[!duplicated(meta.data$cov.name), ]
 all.cov.files <- all.cov.files[meta.data$cov.name]
 labels <- to_vec( for(item in names(all.cov.files)) if (subset(meta.data, meta.data$cov.name == item)$Label == input.cancer.class) 1 else 0)
 
-##### RUN DML
+##### panel overlapping CpG TMD450 and TCGA
+path.to.save.panel.info <- file.path(path.to.main.output, "panel")
+cpg450df <- readxl::read_excel(file.path(path.to.save.panel.info, "TMD450_overlapping_TCGA.xlsx")) %>%
+  subset(overlapTCGA == "yes")
+cpg450df <- cpg450df[!duplicated(cpg450df$cpg), ]
 
-if (file.exists(file.path(path.to.04.output, "DML_obj.rds")) == FALSE){
-  print("Generate methylkit object from input cov files...")
-  DML.obj <- readBismarkCoverage( all.cov.files,
-                                  sample.id = names(all.cov.files),
-                                  assembly = "hg38",
-                                  treatment = labels,
-                                  context = "CpG",
-                                  min.cov = min.cov)
-  saveRDS(DML.obj, file.path(path.to.04.output, "DML_obj.rds"))  
+if (file.exists(file.path(path.to.04.output, sprintf("covdf_all_samples.rds"))) == FALSE){
+  maindf <- data.frame(pos = cpg450df$cpg)
+  tmp.all.cov.files <- all.cov.files
+  for (file in all.cov.files){
+    print(length(setdiff(tmp.all.cov.files, c(file))))
+    tmp.all.cov.files <- setdiff(tmp.all.cov.files, c(file))
+    tmpdf <- read.csv(file, sep = "\t", header = FALSE)[c("V7", "V4")]
+    colnames(tmpdf) <- c("pos", str_replace(basename(file), ".cov", ""))
+    maindf <- merge(maindf, tmpdf, by.x = "pos", by.y = "pos", all.x = TRUE)
+  }
+  saveRDS(maindf, file.path(path.to.04.output, sprintf("covdf_all_samples.rds")))
 } else {
-  print("Methylkit object exists, reading in...")
-  DML.obj <-  readRDS(file.path(path.to.04.output, "DML_obj.rds"))
+  maindf <- readRDS(file.path(path.to.04.output, sprintf("covdf_all_samples.rds")))
 }
 
-#####----------------------------------------------------------------------#####
-# Unite the meth objects
-#####----------------------------------------------------------------------#####
-if (file.exists(file.path(path.to.04.output, "meth.rds")) == FALSE){
-  print("Unite the methylation methylkit object...")
-  meth <- methylKit::unite(object = DML.obj, destrand = FALSE)
-  saveRDS(meth, file.path(path.to.04.output, "meth.rds"))  
-} else {
-  print("Methylkit object united, reading in...")
-  meth <- readRDS(file.path(path.to.04.output, "meth.rds"))
-}
+# colnames(maindf) <- to_vec( for(item in colnames(maindf)) str_replace_all(str_replace(item, "X", ""), "[.]", "-") )
+maindf <- maindf %>% column_to_rownames("pos")
 
-#####----------------------------------------------------------------------#####
-# Generate PCA from CpG loci
-#####----------------------------------------------------------------------#####
-if (file.exists(file.path(path.to.04.output, "pca_from_CpG_loci_res.rds")) == FALSE){
-  print("Generate PCA from CpG methylation loci information...")
-  pca.res <- PCASamples(meth, obj.return = TRUE, screeplot = FALSE)
-} else {
-  print("PCA done, reading in...")
-  pca.res <- readRDS(file.path(path.to.04.output, "pca_from_CpG_loci_res.rds"))
-}
+group1 <- subset(meta.data, meta.data$Label == input.cancer.class)$cov.name
+group2 <- subset(meta.data, meta.data$Label == "Control")$cov.name
 
-#####----------------------------------------------------------------------#####
-# Generate DML
-#####----------------------------------------------------------------------#####
-if (file.exists(file.path(path.to.04.output, "DML.rds")) == FALSE){
-  print("Conduct differential methylated test between case and control ...")
-  myDiff <- calculateDiffMeth(meth, mc.cores = 45)
-  saveRDS(myDiff, file.path(path.to.04.output, "DML.rds"))
-} else {
-  print("Differential methylated test results existed, reading in...")
-  myDiff <- readRDS(file.path(path.to.04.output, "DML.rds"))
-}
+input.metadata <- data.frame(sample = c(group1, group2), 
+                             label = c(
+                               to_vec(for(item in seq(1, length(group1))) "cancer"),
+                               to_vec(for(item in seq(1, length(group2))) "control")
+                             ))
 
-# and get all diff loci
-if (file.exists(file.path(path.to.04.output, "diff_locidf.rds")) == FALSE){
-  diff.loci <- getMethylDiff(myDiff, difference = methdiff.cutoff, qvalue = qvalue.cutoff)
-  saveRDS(diff.loci, file.path(path.to.04.output, "diff_locidf.rds"))  
-} else {
-  diff.loci <- readRDS(file.path(path.to.04.output, "diff_locidf.rds"))
-}
+# this is the factor of interest
+g <- factor(input.metadata$label, levels = c("cancer", "control"))
+# use the above to create a design matrix
+design <- model.matrix(~0+label, data=input.metadata)
+colnames(design) <- levels(g)
+fit <- lmFit(maindf[, intersect(colnames(maindf), input.metadata$sample)], design)
+# create a contrast matrix for specific comparisons
+contMatrix <- makeContrasts(cancer-control,
+                            levels=design)
+fit2 <- contrasts.fit(fit, contMatrix)
+fit2 <- eBayes(fit2)
+resdf.raw <- topTable(fit2, num=Inf, coef=1)
+
+
+
