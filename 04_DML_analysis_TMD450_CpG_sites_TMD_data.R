@@ -37,6 +37,7 @@ all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_TMD
 names(all.cov.files) <- unlist(lapply(all.cov.files, function(x){
   x <- basename(x)
   x <- str_split(x, ".deduplicated")[[1]][[1]]
+  x <- str_replace(x, ".cov", "")
   return(x)
 }))
 
