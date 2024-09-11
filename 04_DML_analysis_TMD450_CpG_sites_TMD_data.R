@@ -33,7 +33,7 @@ path.to.main.output <- file.path(outdir, PROJECT, output.version)
 path.to.04.output <- file.path(path.to.main.output, "04_output", sprintf("%s_vs_Control_minCov_%s", input.cancer.class, min.cov))
 dir.create(path.to.04.output, showWarnings = FALSE, recursive = TRUE)
 
-all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_cov", min.cov), "*.cov"))
+all.cov.files <- Sys.glob(file.path(path.to.input, sprintf("filtered_%sreads_TMD450regionsOverlapTCGA_cov", min.cov), "*.cov"))
 names(all.cov.files) <- unlist(lapply(all.cov.files, function(x){
   x <- basename(x)
   x <- str_split(x, ".deduplicated")[[1]][[1]]

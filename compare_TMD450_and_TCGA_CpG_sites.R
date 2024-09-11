@@ -50,7 +50,9 @@ ann450k.hg38 <- (ann450k.hg38) %>% rowwise() %>%
 
 overlap.tmd450.tcga <- intersect(ann450k.hg38$pos,  cpg450df$cpg)
 cpg450df <- cpg450df %>% rowwise() %>%
-  mutate(overlapTCGA = ifelse(cpg %in% overlap.tmd450.tcga, "yes", "no"))
+  mutate(overlapTCGA = ifelse(cpg %in% overlap.tmd450.tcga, "yes", "no")) %>%
+  mutate(name = ifelse(overlapTCGA == "yes", subset(ann450k.hg38, ann450k.hg38$pos == cpg)$Name, "none"))
+
 if (file.exists(file.path(path.to.save.panel.info, "TMD450_overlapping_TCGA.xlsx")) == FALSE){
   writexl::write_xlsx(cpg450df, file.path(path.to.save.panel.info, "TMD450_overlapping_TCGA.xlsx"))  
 }
