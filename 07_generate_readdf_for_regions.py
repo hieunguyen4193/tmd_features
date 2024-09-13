@@ -1,0 +1,97 @@
+import pandas as pd
+import numpy as np
+import pathlib 
+import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+import random
+from tqdm import tqdm
+import warnings
+import pandas as pd
+warnings.filterwarnings('ignore')
+
+data_version = "TMD_cov"
+output_version = "20240910"
+
+outdir = "/media/hieunguyen/HNSD_mini/outdir"
+PROJECT = "TMD450_TCGA_data_analysis"
+thres_hypo = 0.3
+thres_hyper = 0.6
+
+# input_cancer_class = "Liver"
+all_cancer_classes = ["Liver", "Gastric", "Lung", "Breast", "CRC"]
+for input_cancer_class in all_cancer_classes:
+    print("working on input cancer class {}".format(input_cancer_class))
+
+    path_to_main_output = os.path.join(outdir, PROJECT, output_version)
+    path_to_03_output = os.path.join(path_to_main_output, "03_output", input_cancer_class)
+    path_to_07_output = os.path.join(outdir, PROJECT, output_version, "07_output", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
+    os.system("mkdir -p {}".format(path_to_07_output))
+
+    path_to_main_src = pathlib.Path("/media/hieunguyen/HNSD01/src/tmd_features")
+
+    path_to_read_data = "/media/hieunguyen/GSHD_HN01/raw_data/reads_from_450_regions"
+    path_to_save_panel = os.path.join( path_to_main_output, "panel")
+
+    cpg450df = pd.read_excel(os.path.join(path_to_save_panel, "TMD450_overlapping_TCGA.xlsx"))
+    cpg450df = cpg450df[cpg450df['overlapTCGA'] == "yes"]
+    cpg450df = cpg450df.drop_duplicates(subset=['cpg'])
+
+    metadata = pd.read_excel("metadata_cfDNA_lowpdepth_TMD_bam_cov.xlsx")
+    metadata = metadata[metadata["Label"].isin([input_cancer_class, "Control"])]
+
+    ##### generate readdf for all samples, not only training samples
+    # metadata = metadata[metadata["Set"] == "train"]
+
+    metadata.head()
+    metadata.shape
+
+    def assign_read_type(x, thres_hypo, thres_hyper):
+        if x < thres_hypo:
+            return "hypo"
+        elif x > thres_hyper:
+            return "hyper"
+        else:
+            return "none"
+    def check_read_inside_region(start, seq, region):
+            read_end = start + len(seq)
+            region_start = int(region.split(":")[1].split("-")[0])
+            region_end = int(region.split(":")[1].split("-")[1])
+            if start >= region_start and read_end <= region_end:
+                return "in"
+            else: 
+                return "overlap"
+            
+    all_read_files = [item for item in pathlib.Path(path_to_read_data).glob("*.sorted.csv") if item.name.replace(".sorted.csv", "") in metadata["SampleID"].values]
+    testdf = pd.read_excel(os.path.join(path_to_03_output, "countDMPs.xlsx"))
+    print("Number of TMD450 regions that have been tested by TCGA data: {}".format(testdf.shape[0]))
+    testdf["hypo_or_hyper"] = testdf[["hyper", "hypo"]].apply(lambda x: "hyper" if x[0] > x[1] else "hypo", axis = 1)
+
+    for file in tqdm(all_read_files):
+        if os.path.isfile(os.path.join(path_to_07_output, file.name.replace(".sorted.csv", ".read_classification.csv"))) == False:
+            tmpdf = pd.read_csv(file, index_col = [0])
+            tmpdf["read_overlap_rate"] = tmpdf[["start", "seq", "region"]].apply(lambda x: check_read_inside_region(x[0], x[1], x[2]), axis = 1)
+
+            ##### keep only reads that are completely inside the region
+            tmpdf = tmpdf[tmpdf["read_overlap_rate"] == "in"]
+
+            ##### assign read type: hyper or hypo reads based on the given thresholds
+            tmpdf["read_classification"] = tmpdf["alpha"].apply(lambda x: assign_read_type(x, thres_hypo, thres_hyper))
+            
+            ##### considers only regions that are tested with the TCGA data
+            tmpdf = tmpdf[tmpdf["region"].isin(testdf.Var1.unique())]
+
+            ##### count hypo and hyper reads in each region
+            resdf = tmpdf.groupby(["region", "read_classification"]).seq.count().reset_index().pivot_table(index = "region", columns = "read_classification", values = "seq").reset_index().fillna(0)
+
+            ##### get the region type from TCGA test results
+            resdf["region_type"] = resdf["region"].apply(lambda x: testdf[testdf.Var1 == x].hypo_or_hyper.values[0])
+
+            ##### assign candi reads equal to number of hypo or hyper reads, depending on the region type
+            resdf["candi_reads"] = resdf[["region_type", "hyper", "hypo"]].apply(lambda x: x[1] if x[0] == "hyper" else x[2], axis = 1)
+            
+            ##### save the results
+            resdf.to_csv(os.path.join(path_to_07_output, "{}.candi_reads.csv".format(file.name.split(".")[0])), index = False)
+            tmpdf.to_csv(os.path.join(path_to_07_output, file.name.replace(".sorted.csv", ".read_classification.csv")))
+        else:
+            print("File {} already exists".format(file.name.replace(".sorted.csv", ".read_classification.csv")))
