@@ -67,10 +67,18 @@ for input_cancer_class in all_cancer_classes:
     print("Number of TMD450 regions that have been tested by TCGA data: {}".format(testdf.shape[0]))
     testdf["hypo_or_hyper"] = testdf[["hyper", "hypo"]].apply(lambda x: "hyper" if x[0] > x[1] else "hypo", axis = 1)
 
-    for file in tqdm(all_read_files):
+    all_samples = []
+    raw_counts = []
+    in_read_counts = []
+    for file in tqdm(all_read_files[0:""]):
         if os.path.isfile(os.path.join(path_to_07_output, file.name.replace(".sorted.csv", ".read_classification.csv"))) == False:
             tmpdf = pd.read_csv(file, index_col = [0])
             tmpdf["read_overlap_rate"] = tmpdf[["start", "seq", "region"]].apply(lambda x: check_read_inside_region(x[0], x[1], x[2]), axis = 1)
+            raw_count = tmpdf.shape[0]
+            in_read_count = tmpdf[tmpdf["read_overlap_rate"] == "in"].shape[0]
+            all_samples.append(file.name.replace(".sorted.csv", ""))
+            raw_counts.append(raw_count)
+            in_read_counts.append(in_read_count)
 
             ##### keep only reads that are completely inside the region
             tmpdf = tmpdf[tmpdf["read_overlap_rate"] == "in"]
@@ -95,3 +103,5 @@ for input_cancer_class in all_cancer_classes:
             tmpdf.to_csv(os.path.join(path_to_07_output, file.name.replace(".sorted.csv", ".read_classification.csv")))
         else:
             print("File {} already exists".format(file.name.replace(".sorted.csv", ".read_classification.csv")))
+    countdf = pd.DataFrame({"SampleID": all_samples, "raw_count": raw_counts, "in_read_count": in_read_counts})
+    countdf.to_csv(os.path.join(path_to_07_output, "all_count.csv"))
