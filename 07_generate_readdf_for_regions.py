@@ -87,6 +87,7 @@ for input_cancer_class in all_cancer_classes:
             tmpdf["read_classification"] = tmpdf["alpha"].apply(lambda x: assign_read_type(x, thres_hypo, thres_hyper))
             
             ##### considers only regions that are tested with the TCGA data
+            tmpdf["region"] = tmpdf["region"].apply(lambda x: x.replace(":", "_").replace("-", "_"))
             tmpdf = tmpdf[tmpdf["region"].isin(testdf.Var1.unique())]
 
             ##### count hypo and hyper reads in each region
