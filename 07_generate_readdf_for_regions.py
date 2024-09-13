@@ -70,7 +70,7 @@ for input_cancer_class in all_cancer_classes:
     all_samples = []
     raw_counts = []
     in_read_counts = []
-    for file in tqdm(all_read_files[0:2]):
+    for file in tqdm(all_read_files):
         if os.path.isfile(os.path.join(path_to_07_output, file.name.replace(".sorted.csv", ".read_classification.csv"))) == False:
             tmpdf = pd.read_csv(file, index_col = [0])
             tmpdf["read_overlap_rate"] = tmpdf[["start", "seq", "region"]].apply(lambda x: check_read_inside_region(x[0], x[1], x[2]), axis = 1)
