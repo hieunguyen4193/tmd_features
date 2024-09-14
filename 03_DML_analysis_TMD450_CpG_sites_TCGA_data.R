@@ -22,6 +22,7 @@ path.to.input <- file.path("/media/hieunguyen/GSHD_HN01/raw_data/bismark_cov", d
 path.to.main.output <- file.path(outdir, PROJECT, output.version)
 
 for (input.cancer.class in all.cancer.classes){
+# for (input.cancer.class in c("Liver")){
   path.to.01.output <- file.path(path.to.main.output, "01_output", input.cancer.class)
   path.to.03.output <- file.path(path.to.main.output, "03_output", input.cancer.class)
   dir.create(path.to.03.output, showWarnings = FALSE, recursive = TRUE)
@@ -85,11 +86,12 @@ for (input.cancer.class in all.cancer.classes){
       mutate(hyper_or_hypo1 = ifelse(logFC >= 0, "hypo", "hyper"))
     
     DMPs <- merge(DMPs, diff.methyl, by.x = "TCGA_CpG", by.y = "cpg") %>%
+      subset(adj.P.Val <= 0.05) %>%
       rowwise() %>%
       mutate(abs.diff = abs(diff)) 
     DMPs <- merge(DMPs, subset(cpg450df, select = c(cpg, region)), by.x = "cpg", by.y = "cpg")
     writexl::write_xlsx(DMPs, file.path(path.to.03.output, "DMPs.xlsx"))
-    
+    print(nrow(DMPs))
     countDMPs <- table(DMPs$region, DMPs$hyper_or_hypo1) %>% as.data.frame() %>%
       pivot_wider(names_from = "Var2", values_from = "Freq")
     writexl::write_xlsx(countDMPs, file.path(path.to.03.output, "countDMPs.xlsx"))

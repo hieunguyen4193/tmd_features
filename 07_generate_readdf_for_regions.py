@@ -8,6 +8,7 @@ import random
 from tqdm import tqdm
 import warnings
 import pandas as pd
+import argparse
 warnings.filterwarnings('ignore')
 
 data_version = "TMD_cov"
@@ -19,8 +20,10 @@ thres_hypo = 0.3
 thres_hyper = 0.6
 
 # input_cancer_class = "Liver"
-all_cancer_classes = ["Liver", "Gastric", "Lung", "Breast", "CRC"]
-for input_cancer_class in all_cancer_classes:
+# all_cancer_classes = ["Liver", "Gastric", "Lung", "Breast", "CRC"]
+# for input_cancer_class in all_cancer_classes:
+def main(args):
+    input_cancer_class = args.input_cancer_class
     print("working on input cancer class {}".format(input_cancer_class))
 
     path_to_main_output = os.path.join(outdir, PROJECT, output_version)
@@ -106,3 +109,12 @@ for input_cancer_class in all_cancer_classes:
             print("File {} already exists".format(file.name.replace(".sorted.csv", ".read_classification.csv")))
     countdf = pd.DataFrame({"SampleID": all_samples, "raw_count": raw_counts, "in_read_count": in_read_counts})
     countdf.to_csv(os.path.join(path_to_07_output, "all_count.csv"))
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Process read data and classify reads.")
+    parser.add_argument("--input_cancer_class", type=str, required=True, help="input cancer class")
+    
+    args = parser.parse_args()
+    
+    main(args)
+    

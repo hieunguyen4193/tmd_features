@@ -7,7 +7,6 @@ library(minfi)
 library(comprehenr)
 library(limma)
 
-
 if ("liftOver" %in% installed.packages() == FALSE){
   BiocManager::install("liftOver", update = FALSE)
 }
