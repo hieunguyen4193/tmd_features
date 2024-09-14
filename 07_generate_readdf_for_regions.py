@@ -92,13 +92,17 @@ def main(args):
             ##### considers only regions that are tested with the TCGA data
             tmpdf["region"] = tmpdf["region"].apply(lambda x: x.replace(":", "_").replace("-", "_"))
             tmpdf = tmpdf[tmpdf["region"].isin(testdf.Var1.unique())]
-
+            print(tmpdf.shape)
             ##### count hypo and hyper reads in each region
             resdf = tmpdf.groupby(["region", "read_classification"]).seq.count().reset_index().pivot_table(index = "region", columns = "read_classification", values = "seq").reset_index().fillna(0)
 
             ##### get the region type from TCGA test results
             resdf["region_type"] = resdf["region"].apply(lambda x: testdf[testdf.Var1 == x].hypo_or_hyper.values[0])
-
+            if "hyper" not in resdf.columns:
+                resdf["hyper"] = 0
+            if "hypo" not in resdf.columns:
+                resdf["hypo"] = 0
+                
             ##### assign candi reads equal to number of hypo or hyper reads, depending on the region type
             resdf["candi_reads"] = resdf[["region_type", "hyper", "hypo"]].apply(lambda x: x[1] if x[0] == "hyper" else x[2], axis = 1)
             
