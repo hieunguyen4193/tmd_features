@@ -19,19 +19,23 @@ PROJECT = "TMD450_TCGA_data_analysis"
 thres_hypo = 0.3
 thres_hyper = 0.6
 
-# input_cancer_class = "Liver"
-# all_cancer_classes = ["Liver", "Gastric", "Lung", "Breast", "CRC"]
-# for input_cancer_class in all_cancer_classes:
 def main(args):
     input_cancer_class = args.input_cancer_class
+    mode = args.mode
     print("working on input cancer class {}".format(input_cancer_class))
 
     path_to_main_output = os.path.join(outdir, PROJECT, output_version)
-    path_to_03_output = os.path.join(path_to_main_output, "03_output", input_cancer_class)
-    path_to_07_output = os.path.join(outdir, PROJECT, output_version, "07_output", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
+    if mode == "all":
+        path_to_03_output = os.path.join(path_to_main_output, "03_output", input_cancer_class)
+        path_to_07_output = os.path.join(outdir, PROJECT, output_version, "07_output", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
+    elif mode == "hypo_only":
+        path_to_03_output = os.path.join(path_to_main_output, "03_output_all_hypo", input_cancer_class)
+        path_to_07_output = os.path.join(outdir, PROJECT, output_version, "07_output_all_hypo", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
+    elif mode == "hyper_only":
+        path_to_03_output = os.path.join(path_to_main_output, "03_output_all_hyper", input_cancer_class)
+        path_to_07_output = os.path.join(outdir, PROJECT, output_version, "07_output_all_hyper", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
+    
     os.system("mkdir -p {}".format(path_to_07_output))
-
-    path_to_main_src = pathlib.Path("/media/hieunguyen/HNSD01/src/tmd_features")
 
     path_to_read_data = "/media/hieunguyen/GSHD_HN01/raw_data/reads_from_450_regions"
     path_to_save_panel = os.path.join( path_to_main_output, "panel")
