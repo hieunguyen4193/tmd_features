@@ -22,9 +22,9 @@ path.to.input <- file.path("/media/hieunguyen/GSHD_HN01/raw_data/bismark_cov", d
 path.to.main.output <- file.path(outdir, PROJECT, output.version)
 
 for (input.cancer.class in all.cancer.classes){
-# for (input.cancer.class in c("Liver")){
+  # for (input.cancer.class in c("Liver")){
   path.to.01.output <- file.path(path.to.main.output, "01_output", input.cancer.class)
-  path.to.03.output <- file.path(path.to.main.output, "03_output_all_hyper", input.cancer.class)
+  path.to.03.output <- file.path(path.to.main.output, "03_output_all_hypo", input.cancer.class)
   dir.create(path.to.03.output, showWarnings = FALSE, recursive = TRUE)
   
   path.to.save.panel.info <- file.path(path.to.main.output, "panel")
@@ -94,7 +94,7 @@ for (input.cancer.class in all.cancer.classes){
     
     DMPs <- DMPs %>% 
       subset(adj.P.Val <= 0.05) %>%
-      subset(mean.group2 <= 0.1)  %>% # add more condition: keep CpG that are <= 0.1% in control
+      subset(mean.group2 >= 0.9)  %>% # add more condition: keep CpG that are <= 0.1% in control
       rowwise() %>%
       mutate(abs.diff = abs(diff)) 
     
@@ -108,6 +108,5 @@ for (input.cancer.class in all.cancer.classes){
     } else {
       writexl::write_xlsx(data.frame(), file.path(path.to.03.output, "countDMPs.xlsx"))
     }
-
   }
 }
