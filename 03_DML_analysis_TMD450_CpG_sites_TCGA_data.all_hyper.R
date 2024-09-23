@@ -108,6 +108,5 @@ for (input.cancer.class in all.cancer.classes){
     } else {
       writexl::write_xlsx(data.frame(), file.path(path.to.03.output, "countDMPs.xlsx"))
     }
-
   }
 }
