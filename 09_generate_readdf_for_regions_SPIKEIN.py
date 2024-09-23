@@ -22,36 +22,27 @@ thres_hyper = 0.6
 def main(args):
     input_cancer_class = args.input_cancer_class
     mode = args.mode
+    path_to_read_data = args.input
     print("working on input cancer class {}".format(input_cancer_class))
 
     path_to_main_output = os.path.join(outdir, PROJECT, output_version)
     if mode == "all":
         path_to_03_output = os.path.join(path_to_main_output, "03_output", input_cancer_class)
-        path_to_07_output = os.path.join(outdir, PROJECT, output_version, "07_output", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
+        path_to_09_output = os.path.join(outdir, PROJECT, output_version, "09_output", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
     elif mode == "hypo_only":
         path_to_03_output = os.path.join(path_to_main_output, "03_output_all_hypo", input_cancer_class)
-        path_to_07_output = os.path.join(outdir, PROJECT, output_version, "07_output_all_hypo", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
+        path_to_09_output = os.path.join(outdir, PROJECT, output_version, "09_output_all_hypo", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
     elif mode == "hyper_only":
         path_to_03_output = os.path.join(path_to_main_output, "03_output_all_hyper", input_cancer_class)
-        path_to_07_output = os.path.join(outdir, PROJECT, output_version, "07_output_all_hyper", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
+        path_to_09_output = os.path.join(outdir, PROJECT, output_version, "09_output_all_hyper", input_cancer_class, "thres_hypo_{}_hyper_{}".format(thres_hypo, thres_hyper))
     
-    os.system("mkdir -p {}".format(path_to_07_output))
+    os.system("mkdir -p {}".format(path_to_09_output))
 
-    path_to_read_data = "/media/hieunguyen/GSHD_HN01/raw_data/reads_from_450_regions"
     path_to_save_panel = os.path.join( path_to_main_output, "panel")
 
     cpg450df = pd.read_excel(os.path.join(path_to_save_panel, "TMD450_overlapping_TCGA.xlsx"))
     cpg450df = cpg450df[cpg450df['overlapTCGA'] == "yes"]
     cpg450df = cpg450df.drop_duplicates(subset=['cpg'])
-
-    metadata = pd.read_excel("metadata_cfDNA_lowpdepth_TMD_bam_cov.xlsx")
-    metadata = metadata[metadata["Label"].isin([input_cancer_class, "Control"])]
-
-    ##### generate readdf for all samples, not only training samples
-    # metadata = metadata[metadata["Set"] == "train"]
-
-    metadata.head()
-    metadata.shape
 
     def assign_read_type(x, thres_hypo, thres_hyper):
         if x < thres_hypo:
@@ -69,7 +60,7 @@ def main(args):
             else: 
                 return "overlap"
             
-    all_read_files = [item for item in pathlib.Path(path_to_read_data).glob("*.sorted.csv") if item.name.replace(".sorted.csv", "") in metadata["SampleID"].values]
+    all_read_files = [item for item in pathlib.Path(path_to_read_data).glob("*.sorted.csv") if item.name.replace(".sorted.csv", "")]
     testdf = pd.read_excel(os.path.join(path_to_03_output, "countDMPs.xlsx"))
     print("Number of TMD450 regions that have been tested by TCGA data: {}".format(testdf.shape[0]))
     if "hyper" not in testdf.columns:
@@ -82,7 +73,7 @@ def main(args):
     raw_counts = []
     in_read_counts = []
     for file in tqdm(all_read_files):
-        if os.path.isfile(os.path.join(path_to_07_output, file.name.replace(".sorted.csv", ".read_classification.csv"))) == False:
+        if os.path.isfile(os.path.join(path_to_09_output, file.name.replace(".sorted.csv", ".read_classification.csv"))) == False:
             tmpdf = pd.read_csv(file, index_col = [0])
             tmpdf["read_overlap_rate"] = tmpdf[["start", "seq", "region"]].apply(lambda x: check_read_inside_region(x[0], x[1], x[2]), axis = 1)
             raw_count = tmpdf.shape[0]
@@ -114,15 +105,16 @@ def main(args):
             resdf["candi_reads"] = resdf[["region_type", "hyper", "hypo"]].apply(lambda x: x[1] if x[0] == "hyper" else x[2], axis = 1)
             
             ##### save the results
-            resdf.to_csv(os.path.join(path_to_07_output, "{}.candi_reads.csv".format(file.name.split(".")[0])), index = False)
-            tmpdf.to_csv(os.path.join(path_to_07_output, file.name.replace(".sorted.csv", ".read_classification.csv")))
+            resdf.to_csv(os.path.join(path_to_09_output, "{}.candi_reads.csv".format(file.name.split(".")[0])), index = False)
+            tmpdf.to_csv(os.path.join(path_to_09_output, file.name.replace(".sorted.csv", ".read_classification.csv")))
         else:
             print("File {} already exists".format(file.name.replace(".sorted.csv", ".read_classification.csv")))
     countdf = pd.DataFrame({"SampleID": all_samples, "raw_count": raw_counts, "in_read_count": in_read_counts})
-    countdf.to_csv(os.path.join(path_to_07_output, "all_count.csv"))
+    countdf.to_csv(os.path.join(path_to_09_output, "all_count.csv"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process read data and classify reads.")
+    parser.add_argument("--input", type=str, required=True, help="path to read files")
     parser.add_argument("--input_cancer_class", type=str, required=True, help="input cancer class")
     parser.add_argument("--mode", type=str, required=True, help="choose all or hypo or hyper only")
     
