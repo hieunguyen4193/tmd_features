@@ -34,6 +34,7 @@ def main():
         for read in bamfile_obj:
             reads.append(read)
         readdf = pd.DataFrame()
+        readdf["name"] = [read.to_dict()["name"] for read in reads]
         readdf["chrom"] = [read.to_dict()["ref_name"] for read in reads]
         readdf["start"] = [read.to_dict()["ref_pos"] for read in reads]
         readdf["cigar"] = [read.to_dict()["cigar"] for read in reads]
