@@ -72,14 +72,14 @@ for mode in ["all", "hypo_only", "hyper_only"]:
         candidf["tumor_spikein"] = candidf["SampleID"].apply(lambda x: x.split("from_")[1].split("_")[0])
         candidf["replicate"] = candidf["SampleID"].apply(lambda x: x.split("_")[-1])
 
-        candidf.to_excel(os.path.join(path_to_10_output, "candi_reads_all_{}_vs_control.xlsx".format(input_cancer_class)), index = False)
-
         metadata_spike_in = pd.read_csv("metadata_Spike_in_silico_TMD_samples_from_tissue_highdepth_07102024.csv")
         candidf = candidf.merge(metadata_spike_in[["SampleID", "Spike_in_label"]], right_on = "SampleID", left_on = "SampleID")
         thresdf = pd.read_csv(f"thresdf.{mode}.csv")
         spike_in_label = input_cancer_class
         candidf_raw = candidf.copy()
         candidf = candidf[candidf["Spike_in_label"] == spike_in_label]
+        candidf.to_excel(os.path.join(path_to_10_output, "candi_reads_all_{}_vs_control.xlsx".format(input_cancer_class)), index = False)
+
         for tumor_sample in candidf.tumor_spikein.unique():
             for background_sample in candidf.Background.unique():
                 for feat in ["ratio_raw", "ratio_in_reads"]:
