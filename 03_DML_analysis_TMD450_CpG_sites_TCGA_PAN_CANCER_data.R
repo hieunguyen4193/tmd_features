@@ -39,15 +39,23 @@ if (file.exists(file.path(path.to.03.output, "DMPs.xlsx")) == FALSE){
   
   ##### metadata
   path.to.tcga.info <- file.path(path.to.main.src, "TCGA_database_info")
-  if (input.cancer.class == "CRC"){
-    sample.sheet.normal <- read.csv(Sys.glob(file.path(path.to.tcga.info, sprintf("%s_idat", "Colon"), "*Normal_450K.tsv")), sep = "\t")
-    sample.sheet.cancer <- read.csv(Sys.glob(file.path(path.to.tcga.info, sprintf("%s_idat", "Colon"), "*Tumor_450K.tsv")), sep = "\t")
-  } else {
-    sample.sheet.normal <- read.csv(Sys.glob(file.path(path.to.tcga.info, sprintf("%s_idat", input.cancer.class), "*Normal_450K.tsv")), sep = "\t")
-    sample.sheet.cancer <- read.csv(Sys.glob(file.path(path.to.tcga.info, sprintf("%s_idat", input.cancer.class), "*Tumor_450K.tsv")), sep = "\t")
+  all.normal.files <- Sys.glob(file.path(path.to.tcga.info, sprintf("%s_idat", input.cancer.class), "*Normal_450K.tsv"))
+  all.tumor.files <- Sys.glob(file.path(path.to.tcga.info, sprintf("%s_idat", input.cancer.class), "*Tumor_450K.tsv"))
+  
+  sample.sheet.normal <- data.frame()
+  sample.sheet.cancer <- data.frame()
+  for (input.file in all.normal.files){
+    tmp.sample.sheet.normal <- read.csv(input.file, sep = "\t")  
+    sample.sheet.normal <- rbind(sample.sheet.normal, tmp.sample.sheet.normal)
+  }
+  
+  for (input.file in all.tumor.files){
+    tmp.sample.sheet.cancer <- read.csv(input.file, sep = "\t") 
+    sample.sheet.cancer <- rbind(sample.sheet.cancer, tmp.sample.sheet.cancer)
   }
   
   sample.sheet <- rbind(sample.sheet.normal, sample.sheet.cancer)
+  
   sample.sheet <- sample.sheet %>% rowwise() %>%
     mutate(SampleID = str_replace(str_replace(File.Name, "_Grn.idat", ""), "_Red.idat", "")) %>%
     mutate(Label = ifelse(Sample.Type == "Solid Tissue Normal", "Control", "Tumor"))

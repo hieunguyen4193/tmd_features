@@ -29,6 +29,7 @@ if (input.cancer.class == "Colon"){
   path.to.01.output <- file.path(path.to.main.output, "01_output", input.cancer.class)
 }
 dir.create(path.to.01.output, showWarnings = FALSE, recursive = TRUE)
+
 all.normal.files <- Sys.glob(file.path(path.to.tcga.info, sprintf("%s_idat", input.cancer.class), "*Normal_450K.tsv"))
 all.tumor.files <- Sys.glob(file.path(path.to.tcga.info, sprintf("%s_idat", input.cancer.class), "*Tumor_450K.tsv"))
 
@@ -39,7 +40,7 @@ for (input.file in all.normal.files){
   sample.sheet.normal <- rbind(sample.sheet.normal, tmp.sample.sheet.normal)
 }
 
-for (input.file in all.normal.files){
+for (input.file in all.tumor.files){
   tmp.sample.sheet.cancer <- read.csv(input.file, sep = "\t") 
   sample.sheet.cancer <- rbind(sample.sheet.cancer, tmp.sample.sheet.cancer)
 }
