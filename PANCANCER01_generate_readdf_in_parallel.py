@@ -35,7 +35,7 @@ def main(args):
     path_to_read_data =  args.input
     testdf = pd.read_csv(path_to_testdf)
     outputdir = args.output
-
+    os.system(f"mkdir -p {outputdir}")
     filename = path_to_read_data.split("/")[-1].replace(".sorted.csv", ".read_classification.csv")
     if os.path.isfile(os.path.join(outputdir, filename)) == False:
         tmpdf = pd.read_csv(path_to_read_data, index_col = [0])
@@ -81,3 +81,17 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     main(args)
+
+
+##### run for all TMD samples
+# parallel -j 50 python PANCANCER01_generate_readdf_in_parallel.py \
+# --input {} \
+# --testdf /media/hieunguyen/HNSD_mini/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER01_output/testdf_all_regions_for_pan_cancer.csv \
+# --output /media/hieunguyen/HNSD_mini/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER01_output ::: $files
+
+##### run for all LOD samples
+# path_to_input="/media/hieunguyen/GSHD_HN01/raw_data/reads_from_450_regions_LOD_samples"
+# parallel -j 50 python PANCANCER01_generate_readdf_in_parallel.py \
+# --input {} \
+# --testdf /media/hieunguyen/HNSD_mini/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER01_output/testdf_all_regions_for_pan_cancer.csv \
+# --output /media/hieunguyen/HNSD_mini/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER03_output ::: $files
