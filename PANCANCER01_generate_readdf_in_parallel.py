@@ -95,3 +95,11 @@ if __name__ == "__main__":
 # --input {} \
 # --testdf /media/hieunguyen/HNSD_mini/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER01_output/testdf_all_regions_for_pan_cancer.csv \
 # --output /media/hieunguyen/HNSD_mini/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER03_output ::: $files
+
+##### run for all validation samples
+# path_to_input="/media/hieunguyen/GSHD_HN01/raw_data/reads_from_450_regions_validations_Vi-Truong"
+# files=$(ls ${path_to_input}/*.csv);
+# parallel -j 50 python PANCANCER01_generate_readdf_in_parallel.py \
+# --input {} \
+# --testdf /media/hieunguyen/GSHD_HN01/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER01_output/testdf_all_regions_for_pan_cancer.csv \
+# --output /media/hieunguyen/GSHD_HN01/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER05_output ::: $files
