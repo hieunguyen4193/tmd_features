@@ -37,10 +37,19 @@ def main(args):
     outputdir = args.output
     os.system(f"mkdir -p {outputdir}")
     filename = path_to_read_data.split("/")[-1].replace(".sorted.csv", ".read_classification.csv")
+    
+    all_samples = []
+    raw_counts = []
+    in_read_counts = []
     if os.path.isfile(os.path.join(outputdir, filename)) == False:
         tmpdf = pd.read_csv(path_to_read_data, index_col = [0])
         tmpdf["read_overlap_rate"] = tmpdf[["start", "seq", "region"]].apply(lambda x: check_read_inside_region(x[0], x[1], x[2]), axis = 1)
-        
+        raw_count = tmpdf.shape[0]
+        in_read_count = tmpdf[tmpdf["read_overlap_rate"] == "in"].shape[0]
+        all_samples.append(file.name.replace(".sorted.csv", ""))
+        raw_counts.append(raw_count)
+        in_read_counts.append(in_read_count)
+
         ##### keep only reads that are completely inside the region
         tmpdf = tmpdf[tmpdf["read_overlap_rate"] == "in"]
 
@@ -71,6 +80,8 @@ def main(args):
         tmpdf.to_csv(os.path.join(outputdir, filename.replace(".sorted.csv", ".read_classification.csv")))
     else:
         print(f"File {os.path.join(outputdir, filename)} exists")
+    countdf = pd.DataFrame({"SampleID": all_samples, "raw_count": raw_counts, "in_read_count": in_read_counts})
+    countdf.to_csv(os.path.join(outputdir, "all_count.csv"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process read data and classify reads.")
