@@ -38,17 +38,17 @@ def main(args):
     os.system(f"mkdir -p {outputdir}")
     filename = path_to_read_data.split("/")[-1].replace(".sorted.csv", ".read_classification.csv")
     
-    all_samples = []
-    raw_counts = []
-    in_read_counts = []
     if os.path.isfile(os.path.join(outputdir, filename)) == False:
         tmpdf = pd.read_csv(path_to_read_data, index_col = [0])
         tmpdf["read_overlap_rate"] = tmpdf[["start", "seq", "region"]].apply(lambda x: check_read_inside_region(x[0], x[1], x[2]), axis = 1)
         raw_count = tmpdf.shape[0]
         in_read_count = tmpdf[tmpdf["read_overlap_rate"] == "in"].shape[0]
-        all_samples.append(file.name.replace(".sorted.csv", ""))
-        raw_counts.append(raw_count)
-        in_read_counts.append(in_read_count)
+        
+        countdf = pd.DataFrame({"SampleID": [filename.replace(".sorted.csv", "")], 
+                                "raw_count": [raw_count], 
+                                "in_read_count": [in_read_count]})
+        
+        countdf.to_csv(os.path.join(outputdir, "{}.read_count.csv".format(filename.split(".")[0])))
 
         ##### keep only reads that are completely inside the region
         tmpdf = tmpdf[tmpdf["read_overlap_rate"] == "in"]
@@ -80,8 +80,7 @@ def main(args):
         tmpdf.to_csv(os.path.join(outputdir, filename.replace(".sorted.csv", ".read_classification.csv")))
     else:
         print(f"File {os.path.join(outputdir, filename)} exists")
-    countdf = pd.DataFrame({"SampleID": all_samples, "raw_count": raw_counts, "in_read_count": in_read_counts})
-    countdf.to_csv(os.path.join(outputdir, "all_count.csv"))
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process read data and classify reads.")
@@ -96,6 +95,7 @@ if __name__ == "__main__":
 
 ##### run for all TMD samples
 # path_to_input="/media/hieunguyen/GSHD_HN01/raw_data/reads_from_450_regions_with_readname_TMDfull";
+# files=$(ls ${path_to_input}/*.csv)
 # parallel -j 50 python PANCANCER01_generate_readdf_in_parallel.py \
 # --input {} \
 # --testdf /media/hieunguyen/GSHD_HN01/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER01_output/testdf_all_regions_for_pan_cancer.csv \
@@ -103,6 +103,7 @@ if __name__ == "__main__":
 
 ##### run for all LOD samples
 # path_to_input="/media/hieunguyen/GSHD_HN01/raw_data/reads_from_450_regions_LOD_samples"
+# files=$(ls ${path_to_input}/*.csv)
 # parallel -j 50 python PANCANCER01_generate_readdf_in_parallel.py \
 # --input {} \
 # --testdf /media/hieunguyen/GSHD_HN01/outdir/TMD450_TCGA_data_analysis/20240910/PANCANCER01_output/testdf_all_regions_for_pan_cancer.csv \
