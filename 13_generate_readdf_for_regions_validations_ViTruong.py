@@ -110,6 +110,7 @@ def main(args):
         else:
             print("File {} already exists".format(file.name.replace(".sorted.csv", ".read_classification.csv")))
     countdf = pd.DataFrame({"SampleID": all_samples, "raw_count": raw_counts, "in_read_count": in_read_counts})
+    print(countdf.shape)
     countdf.to_csv(os.path.join(path_to_13_output, "all_count.csv"))
 
 if __name__ == "__main__":
